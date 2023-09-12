@@ -2,7 +2,7 @@
 <!-- add the svg logo -->
 <img src="https://raw.githubusercontent.com/EzraEllette/minject/8dd515534d7c963faf936a40ab1b2941320bd2dd/assets/MInject.svg" width="250" height="250">
 
-MInject is a shared library injection tool for Apple silicon.
+mInject is a shared library injection tool for Apple silicon.
 
 ## Usage
 ```
