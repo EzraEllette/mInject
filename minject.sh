@@ -114,6 +114,15 @@ createlldbUnlaodScript() {
     echo "expr (int)dlclose(\$handle);" >> /tmp/minject/unloadscript
 }
 
+library_loaded() {
+    linked=$(vmmap $process_id | grep "$library_path")
+    if [ -z "$linked" ]; then
+        return 0
+    else
+        return 1
+    fi
+}
+
 mktmp
 
 
@@ -123,9 +132,14 @@ if [[ $unload == true || $reload == true ]]; then
     echo "Unloading library '$library_path' from process '$process_id'"
     lldb -p $process_id --batch -s /tmp/minject/unloadscript > /dev/null 2>&1
     if [ $unload == true ]; then
-        echo "Unloaded library '$library_path' from process '$process_id'"
         rmtmp
-        exit 0
+        if library_loaded; then
+            echo "Error: Library '$library_path' still loaded in process '$process_id'"
+            exit 1
+        else
+            echo "Unloaded library '$library_path' from process '$process_id'"
+            exit 0
+        fi
     fi
 fi
 
@@ -135,6 +149,10 @@ if [[ $inject == true || $reload == true ]]; then
     createlldbLoadScript
     lldb -p $process_id --batch -s /tmp/minject/loadscript > /dev/null 2>&1
     rmtmp
+    if [ ! library_loaded ]; then
+        echo "Error: Library '$library_path' not loaded in process '$process_id'"
+        exit 1
+    fi
     echo "Injected library '$library_path' into process '$process_id'"
     exit 0
 fi

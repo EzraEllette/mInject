@@ -21,3 +21,4 @@ Usage: minject.sh [-p process_id] [-n process_name] { -i | -r | -u } <library_pa
 
 ## Planned Features
 - [ ] Logging `stdout` and `stderr` of the injected process
+- [x] Use `proc_maps` to verify injection and unloading
