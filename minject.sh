@@ -11,6 +11,11 @@ display_help() {
     echo -e "Usage: $(basename $0) [-p process_id] [-n process_name] { -i | -r | -u } <library_path>\n\t-i\tInject the library into the process\n\t-r\tReload the library in the process\n\t-u\tUnload the library from the process\n\t-p\tProcess id\n\t-n\tProcess name\n\t-h\tDisplay this help message"
 }
 
+# if [ "$EUID" -ne 0 ]; then
+#     echo "Error: Please run as root"
+#     exit 1
+# fi
+
 while getopts 'p:n:l:iruh' opt; do
   case "$opt" in
     p)
@@ -90,16 +95,36 @@ fi
 # Get the absolute path of the library
 library_path=$(cd $(dirname "$library_path"); pwd)/$(basename "$library_path")
 
+
+mktmp() {
+    mkdir -p /tmp/minject
+}
+
+rmtmp() {
+    rm -rf /tmp/minject
+}
+
+createlldbLoadScript() {
+    echo "expr (void*)dlopen(\"$library_path\", 0x2);" > /tmp/minject/loadscript
+}
+
+createlldbUnlaodScript() {
+    echo "expr void* \$handle = (void*)dlopen(\"$library_path\", 0x6);" > /tmp/minject/unloadscript
+    echo "expr (int)dlclose(\$handle);" >> /tmp/minject/unloadscript
+    echo "expr (int)dlclose(\$handle);" >> /tmp/minject/unloadscript
+}
+
+mktmp
+
+
 if [[ $unload == true || $reload == true ]]; then
     #Decrease library reference count to unload it
-    lldb -p $process_id -o "expr void* \$handle = (void*)dlopen(\"$library_path\", 0x6);" \
-        -o "expr (void*)dlclose(\$handle);" \
-        -o "expr (void*)dlclose(\$handle);" \
-        -o "pro cont" \
-        -o "de" \
-        -o "exit" > /dev/null 2>&1
+    createlldbUnlaodScript
+    echo "Unloading library '$library_path' from process '$process_id'"
+    lldb -p $process_id --batch -s /tmp/minject/unloadscript > /dev/null 2>&1
     if [ $unload == true ]; then
         echo "Unloaded library '$library_path' from process '$process_id'"
+        rmtmp
         exit 0
     fi
 fi
@@ -107,10 +132,9 @@ fi
 if [[ $inject == true || $reload == true ]]; then
     # Inject the library
     echo "Injecting library '$library_path' into process '$process_id'"
-    lldb -p $process_id -o "expr (void*)dlopen(\"$library_path\", 0x2);" \
-        -o "pro cont" \
-        -o "de" \
-        -o "exit" > /dev/null 2>&1
+    createlldbLoadScript
+    lldb -p $process_id --batch -s /tmp/minject/loadscript > /dev/null 2>&1
+    rmtmp
     echo "Injected library '$library_path' into process '$process_id'"
     exit 0
 fi
