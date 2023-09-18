@@ -20,6 +20,11 @@ while getopts 'p:n:l:iruh' opt; do
   case "$opt" in
     p)
         process_id="$OPTARG"
+
+        if ! [[ $process_id =~ ^[0-9]+$ ]]; then
+            echo "Error: Process id must be a number"
+            exit 1
+        fi
       ;;
 
     n)
